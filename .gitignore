@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment files (contain secrets)
+.env
+.env.local
+
+# Uploads (user uploaded files)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Expo
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Android
+mobile-android/android/.gradle/
+mobile-android/android/app/build/
+mobile-android/android/build/
+*.apk
+*.aab
+
+# iOS
+ios/Pods/
+*.xcworkspace
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
