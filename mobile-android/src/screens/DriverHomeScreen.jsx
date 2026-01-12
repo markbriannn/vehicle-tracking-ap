@@ -28,6 +28,7 @@ import {
   TextInput,
   Modal,
   RefreshControl,
+  AppState,
 } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { useLocation } from '../hooks/useLocation';
@@ -54,6 +55,17 @@ export default function DriverHomeScreen({ navigation }) {
   useEffect(() => {
     refreshUser();
   }, [refreshUser]);
+
+  // Auto-refresh when app comes back to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // App came to foreground, refresh data
+        onRefresh();
+      }
+    });
+    return () => subscription?.remove();
+  }, [onRefresh]);
 
   // Pull to refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -182,9 +194,14 @@ export default function DriverHomeScreen({ navigation }) {
           <Text style={styles.greeting}>Hello, {user?.name} 👋</Text>
           <Text style={styles.role}>Driver</Text>
         </View>
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity onPress={onRefresh} style={[styles.logoutButton, { backgroundColor: '#3B82F6' }]}>
+            <Text style={[styles.logoutText, { color: 'white' }]}>🔄 Refresh</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={logout} style={styles.logoutButton}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Verification Status */}
