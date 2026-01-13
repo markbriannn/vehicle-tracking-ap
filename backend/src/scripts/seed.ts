@@ -175,11 +175,11 @@ async function seed() {
     // Create Bato Terminal geofence
     const batoTerminal = await Geofence.create({
       name: 'Bato Terminal',
-      description: 'Bus and van terminal in Bato, Leyte - Plus Code: 8QHQ+7M8',
+      description: 'Bus and van terminal in Bato, Leyte',
       type: 'terminal',
       center: {
-        latitude: 10.3283,
-        longitude: 124.7922,
+        latitude: 10.328163,
+        longitude: 124.788680,
       },
       radius: 40, // 40 meters radius
       isActive: true,
@@ -195,13 +195,13 @@ async function seed() {
     // Create Hilongos Terminal geofence
     const hilongosTerminal = await Geofence.create({
       name: 'Hilongos Terminal',
-      description: 'Bus and van terminal in Hilongos, Leyte - Plus Code: 9QF2+52V',
+      description: 'Bus and van terminal in Hilongos, Leyte',
       type: 'terminal',
       center: {
-        latitude: 10.3755,
-        longitude: 124.7529,
+        latitude: 10.373056,
+        longitude: 124.750022,
       },
-      radius: 40, // 40 meters radius
+      radius: 80, // 80 meters radius
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -212,14 +212,14 @@ async function seed() {
     });
     console.log(`Geofence created: ${hilongosTerminal.name} (${hilongosTerminal.radius}m radius)`);
 
-    // Create Inopacan Terminal geofence
-    const inopacanTerminal = await Geofence.create({
-      name: 'Inopacan Terminal',
-      description: 'Bus and van terminal in Inopacan, Leyte - borders Hindang and Camotes Sea',
+    // Create Inopacan Public Market geofence
+    const inopacanMarket = await Geofence.create({
+      name: 'Inopacan Public Market',
+      description: 'Public market in Inopacan, Leyte',
       type: 'terminal',
       center: {
-        latitude: 10.5000,
-        longitude: 124.7333,
+        latitude: 10.499731,
+        longitude: 124.740781,
       },
       radius: 40, // 40 meters radius
       isActive: true,
@@ -230,16 +230,16 @@ async function seed() {
       color: '#8B5CF6', // Purple for terminal
       createdBy: admin._id,
     });
-    console.log(`Geofence created: ${inopacanTerminal.name} (${inopacanTerminal.radius}m radius)`);
+    console.log(`Geofence created: ${inopacanMarket.name} (${inopacanMarket.radius}m radius)`);
 
     // Create Hindang Terminal geofence
     const hindangTerminal = await Geofence.create({
       name: 'Hindang Terminal',
-      description: 'Bus and van terminal in Hindang, Leyte - Plus Code: CPMH+64',
+      description: 'Bus and van terminal in Hindang, Leyte',
       type: 'terminal',
       center: {
-        latitude: 10.4297,
-        longitude: 124.7297,
+        latitude: 10.433479,
+        longitude: 124.728001,
       },
       radius: 40, // 40 meters radius for terminal
       isActive: true,
@@ -255,11 +255,11 @@ async function seed() {
     // Create Baybay City Terminal geofence
     const baybayTerminal = await Geofence.create({
       name: 'Baybay City Terminal',
-      description: 'Bus and van terminal in Baybay City, Leyte - Plus Code: MQGX+57X, Pan-Philippine Highway',
+      description: 'Bus and van terminal in Baybay City, Leyte',
       type: 'terminal',
       center: {
-        latitude: 10.6872,
-        longitude: 124.7997,
+        latitude: 10.675542,
+        longitude: 124.798245,
       },
       radius: 50, // 50 meters radius
       isActive: true,
@@ -272,14 +272,34 @@ async function seed() {
     });
     console.log(`Geofence created: ${baybayTerminal.name} (${baybayTerminal.radius}m radius)`);
 
+    // Create VSU (Visayas State University) geofence
+    const vsuGeofence = await Geofence.create({
+      name: 'VSU - Visayas State University',
+      description: 'Visayas State University main campus, Baybay City, Leyte',
+      type: 'school',
+      center: {
+        latitude: 10.744323,
+        longitude: 124.792062,
+      },
+      radius: 100, // 100 meters radius for university
+      isActive: true,
+      alertOnEntry: true,
+      alertOnExit: true,
+      notifyAdmin: true,
+      notifyDriver: true,
+      color: '#059669', // Green for school
+      createdBy: admin._id,
+    });
+    console.log(`Geofence created: ${vsuGeofence.name} (${vsuGeofence.radius}m radius)`);
+
     // Create Ormoc City Terminal geofence
     const ormocTerminal = await Geofence.create({
       name: 'Ormoc City Terminal',
-      description: 'Bus and van terminal in Ormoc City, Leyte - Plus Code: 2J34+WX, downtown near coast',
+      description: 'Bus and van terminal in Ormoc City, Leyte',
       type: 'terminal',
       center: {
-        latitude: 11.00639,
-        longitude: 124.6075,
+        latitude: 11.004810,
+        longitude: 124.607382,
       },
       radius: 50, // 50 meters radius - larger city terminal
       isActive: true,
