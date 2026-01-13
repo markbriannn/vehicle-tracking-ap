@@ -232,10 +232,10 @@ async function seed() {
     });
     console.log(`Geofence created: ${inopacanMarket.name} (${inopacanMarket.radius}m radius)`);
 
-    // Create Hindang Terminal geofence
-    const hindangTerminal = await Geofence.create({
-      name: 'Hindang Terminal',
-      description: 'Bus and van terminal in Hindang, Leyte',
+    // Create Hindang Public Market geofence
+    const hindangMarket = await Geofence.create({
+      name: 'Hindang Public Market',
+      description: 'Public market in Hindang, Leyte',
       type: 'terminal',
       center: {
         latitude: 10.433479,
@@ -250,7 +250,7 @@ async function seed() {
       color: '#EC4899', // Pink for market
       createdBy: admin._id,
     });
-    console.log(`Geofence created: ${hindangTerminal.name} (${hindangTerminal.radius}m radius)`);
+    console.log(`Geofence created: ${hindangMarket.name} (${hindangMarket.radius}m radius)`);
 
     // Create Baybay City Terminal geofence
     const baybayTerminal = await Geofence.create({
@@ -258,8 +258,8 @@ async function seed() {
       description: 'Bus and van terminal in Baybay City, Leyte',
       type: 'terminal',
       center: {
-        latitude: 10.675542,
-        longitude: 124.798245,
+        latitude: 10.675340,
+        longitude: 124.798307,
       },
       radius: 50, // 50 meters radius
       isActive: true,
