@@ -90,14 +90,14 @@ export default function App() {
   const { isAuthenticated, user, initialize } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize auth state from storage
+  // Initialize auth state from storage - only once on mount
   useEffect(() => {
     const init = async () => {
       await initialize();
       setIsLoading(false);
     };
     init();
-  }, [initialize]);
+  }, []); // Empty dependency array - run only once
 
   // Show loading screen while checking auth
   if (isLoading) {

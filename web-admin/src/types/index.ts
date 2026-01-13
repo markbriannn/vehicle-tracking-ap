@@ -62,6 +62,7 @@ export interface VehicleLocationUpdate {
   type: VehicleType;
   driverName: string;
   companyName?: string;
+  routeName?: string;
   location: GPSLocation;
   vehiclePhoto: string;
   isOnline: boolean;

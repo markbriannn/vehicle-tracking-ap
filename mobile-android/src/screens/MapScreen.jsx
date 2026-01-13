@@ -201,14 +201,9 @@ export default function MapScreen() {
             onPress={() => selectVehicle(vehicle)}
             tracksViewChanges={false}
           >
-            <View style={[
-              styles.markerContainer,
-              { backgroundColor: VEHICLE_CONFIG[vehicle.type]?.color || colors.primary }
-            ]}>
-              <Text style={styles.markerIcon}>
-                {VEHICLE_CONFIG[vehicle.type]?.icon || '🚗'}
-              </Text>
-            </View>
+            <Text style={{ fontSize: 28 }}>
+              {VEHICLE_CONFIG[vehicle.type]?.icon || '🚗'}
+            </Text>
           </Marker>
         ))}
       </MapView>

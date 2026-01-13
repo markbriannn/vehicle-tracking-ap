@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * LOCATION TRACKING HOOK
+ * LOCATION TRACKING HOOK WITH BACKGROUND SUPPORT
  * =============================================================================
  * 
  * MENTOR NOTE: This hook handles GPS location tracking for drivers.
@@ -9,7 +9,7 @@
  * 1. Requests location permissions
  * 2. Starts continuous location updates
  * 3. Sends updates to server via Socket.io
- * 4. Handles background tracking (when app is minimized)
+ * 4. BACKGROUND TRACKING - continues when app is minimized
  * 
  * GPS UPDATE FLOW:
  * Phone GPS → expo-location → This hook → Socket.io → Backend → Database
@@ -18,14 +18,70 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
-import { useSocket } from './useSocket';
+import * as TaskManager from 'expo-task-manager';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Background task name
+const BACKGROUND_LOCATION_TASK = 'background-location-task';
+const BACKGROUND_LOCATION_KEY = 'background_locations';
+
+/**
+ * Define the background task OUTSIDE of the component
+ * This runs even when the app is in the background
+ */
+TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
+  if (error) {
+    console.error('Background location error:', error);
+    return;
+  }
+
+  if (data) {
+    const { locations } = data;
+    
+    // Store locations for later sync (since we can't use hooks here)
+    try {
+      const stored = await AsyncStorage.getItem(BACKGROUND_LOCATION_KEY);
+      let buffer = stored ? JSON.parse(stored) : [];
+      
+      // Get vehicle ID from storage
+      const vehicleId = await AsyncStorage.getItem('tracking_vehicle_id');
+      
+      if (vehicleId && locations.length > 0) {
+        const newLocations = locations.map(loc => ({
+          vehicleId,
+          location: {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            speed: loc.coords.speed || 0,
+            heading: loc.coords.heading || 0,
+            accuracy: loc.coords.accuracy,
+          },
+          timestamp: new Date().toISOString(),
+        }));
+        
+        buffer = [...buffer, ...newLocations];
+        
+        // Keep max 500 locations
+        if (buffer.length > 500) {
+          buffer = buffer.slice(-500);
+        }
+        
+        await AsyncStorage.setItem(BACKGROUND_LOCATION_KEY, JSON.stringify(buffer));
+        console.log(`📍 Background: stored ${locations.length} location(s), total: ${buffer.length}`);
+      }
+    } catch (e) {
+      console.error('Failed to store background location:', e);
+    }
+  }
+});
 
 export function useLocation(vehicleId, isTracking = false) {
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [hasPermission, setHasPermission] = useState(false);
+  const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
   const locationSubscription = useRef(null);
-  const { sendLocationUpdate, connect, isConnected } = useSocket();
+  const syncInterval = useRef(null);
 
   // Request permissions
   const requestPermissions = useCallback(async () => {
@@ -75,19 +131,41 @@ export function useLocation(vehicleId, isTracking = false) {
   }, [hasPermission, requestPermissions]);
 
   /**
-   * MENTOR NOTE: Start continuous location tracking
-   * This is the main function for driver GPS tracking.
-   * Updates are sent every 5 seconds or when the driver moves 10 meters.
+   * Get background locations that were stored while app was in background
    */
-  const startTracking = useCallback(async () => {
+  const getBackgroundLocations = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(BACKGROUND_LOCATION_KEY);
+      if (stored) {
+        const locations = JSON.parse(stored);
+        // Clear after reading
+        await AsyncStorage.removeItem(BACKGROUND_LOCATION_KEY);
+        return locations;
+      }
+      return [];
+    } catch (e) {
+      console.error('Failed to get background locations:', e);
+      return [];
+    }
+  }, []);
+
+  /**
+   * Start continuous location tracking with background support
+   */
+  const startTracking = useCallback(async (sendLocationUpdate, connect, isConnected) => {
     if (!hasPermission) {
       const granted = await requestPermissions();
       if (!granted) return;
     }
 
     // Connect to Socket.io if not connected
-    if (!isConnected) {
+    if (!isConnected && connect) {
       connect();
+    }
+
+    // Store vehicle ID for background task
+    if (vehicleId) {
+      await AsyncStorage.setItem('tracking_vehicle_id', vehicleId);
     }
 
     // Stop any existing subscription
@@ -95,14 +173,14 @@ export function useLocation(vehicleId, isTracking = false) {
       locationSubscription.current.remove();
     }
 
-    console.log('Starting location tracking...');
+    console.log('Starting location tracking with background support...');
 
-    // Start watching location
+    // Start foreground tracking
     locationSubscription.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
-        timeInterval: 5000, // Update every 5 seconds
-        distanceInterval: 10, // Or when moved 10 meters
+        timeInterval: 5000,
+        distanceInterval: 10,
       },
       (newLocation) => {
         console.log('Location update:', {
@@ -113,40 +191,99 @@ export function useLocation(vehicleId, isTracking = false) {
 
         setLocation(newLocation);
 
-        // Send to server if we have a vehicle ID
-        if (vehicleId) {
+        if (vehicleId && sendLocationUpdate) {
           sendLocationUpdate(vehicleId, newLocation);
         }
       }
     );
-  }, [hasPermission, requestPermissions, vehicleId, sendLocationUpdate, connect, isConnected]);
+
+    // Start background tracking
+    try {
+      const isTaskRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+      
+      if (!isTaskRegistered) {
+        await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 10000, // Every 10 seconds in background
+          distanceInterval: 20, // Or every 20 meters
+          foregroundService: {
+            notificationTitle: 'VehicleTrack',
+            notificationBody: 'Tracking your location in background',
+            notificationColor: '#4CAF50',
+          },
+          pausesUpdatesAutomatically: false,
+          showsBackgroundLocationIndicator: true,
+        });
+        console.log('✅ Background location tracking started');
+        setIsBackgroundTracking(true);
+      }
+    } catch (e) {
+      console.warn('Background tracking not available:', e.message);
+    }
+
+    // Periodically sync background locations when app is in foreground
+    syncInterval.current = setInterval(async () => {
+      const bgLocations = await getBackgroundLocations();
+      if (bgLocations.length > 0 && sendLocationUpdate) {
+        console.log(`🔄 Syncing ${bgLocations.length} background locations`);
+        // Send each location
+        for (const loc of bgLocations) {
+          if (loc.vehicleId) {
+            sendLocationUpdate(loc.vehicleId, {
+              coords: loc.location,
+              timestamp: loc.timestamp,
+            });
+          }
+        }
+      }
+    }, 15000); // Check every 15 seconds
+
+  }, [hasPermission, requestPermissions, vehicleId, getBackgroundLocations]);
 
   // Stop tracking
-  const stopTracking = useCallback(() => {
+  const stopTracking = useCallback(async () => {
+    // Stop foreground tracking
     if (locationSubscription.current) {
       locationSubscription.current.remove();
       locationSubscription.current = null;
-      console.log('Location tracking stopped');
+      console.log('Foreground location tracking stopped');
     }
+
+    // Stop background tracking
+    try {
+      const isTaskRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+      if (isTaskRegistered) {
+        await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+        console.log('Background location tracking stopped');
+        setIsBackgroundTracking(false);
+      }
+    } catch (e) {
+      console.warn('Error stopping background tracking:', e.message);
+    }
+
+    // Clear sync interval
+    if (syncInterval.current) {
+      clearInterval(syncInterval.current);
+      syncInterval.current = null;
+    }
+
+    // Clear stored vehicle ID
+    await AsyncStorage.removeItem('tracking_vehicle_id');
   }, []);
-
-  // Auto-start/stop tracking based on isTracking prop
-  useEffect(() => {
-    if (isTracking && vehicleId) {
-      startTracking();
-    } else {
-      stopTracking();
-    }
-
-    return () => {
-      stopTracking();
-    };
-  }, [isTracking, vehicleId, startTracking, stopTracking]);
 
   // Request permissions on mount
   useEffect(() => {
     requestPermissions();
   }, [requestPermissions]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (syncInterval.current) {
+        clearInterval(syncInterval.current);
+      }
+    };
+  }, []);
 
   return {
     location,
@@ -157,5 +294,7 @@ export function useLocation(vehicleId, isTracking = false) {
     stopTracking,
     requestPermissions,
     isTracking: !!locationSubscription.current,
+    isBackgroundTracking,
+    getBackgroundLocations,
   };
 }

@@ -2,11 +2,10 @@
  * =============================================================================
  * VEHICLE DETAILS PANEL
  * =============================================================================
- * 
- * MENTOR NOTE: Shows detailed information when a vehicle is selected on the map.
  */
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { VehicleLocationUpdate } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -17,10 +16,27 @@ interface VehicleDetailsProps {
 }
 
 export const VehicleDetails: React.FC<VehicleDetailsProps> = ({ vehicle, onClose }) => {
+  const navigate = useNavigate();
+  const [imageError, setImageError] = useState(false);
+
+  // Memoize the image URL to prevent flickering on re-renders
+  const imageUrl = useMemo(() => {
+    if (!vehicle?.vehiclePhoto) return null;
+    return `${API_URL}/${vehicle.vehiclePhoto}`;
+  }, [vehicle?.vehicleId]); // Only change when vehicle ID changes, not on location updates
+
   if (!vehicle) return null;
 
   const formatTime = (timestamp: Date) => {
     return new Date(timestamp).toLocaleTimeString();
+  };
+
+  const handleViewHistory = () => {
+    navigate(`/analytics?vehicleId=${vehicle.vehicleId}&tab=history`);
+  };
+
+  const handleViewAnalytics = () => {
+    navigate(`/analytics?vehicleId=${vehicle.vehicleId}`);
   };
 
   return (
@@ -33,22 +49,27 @@ export const VehicleDetails: React.FC<VehicleDetailsProps> = ({ vehicle, onClose
         </div>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600"
+          className="text-gray-400 hover:text-gray-600 text-xl"
         >
           ✕
         </button>
       </div>
 
-      {/* Vehicle Photo */}
+      {/* Vehicle Photo - Only render once, don't re-render on location updates */}
       <div className="mb-4">
-        <img
-          src={`${API_URL}/${vehicle.vehiclePhoto}`}
-          alt={vehicle.vehicleNumber}
-          className="w-full h-40 object-cover rounded-lg"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = '/placeholder-vehicle.png';
-          }}
-        />
+        {imageUrl && !imageError ? (
+          <img
+            src={imageUrl}
+            alt={vehicle.vehicleNumber}
+            className="w-full h-40 object-cover rounded-lg"
+            onError={() => setImageError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-40 bg-gray-200 rounded-lg flex items-center justify-center">
+            <span className="text-4xl">🚗</span>
+          </div>
+        )}
       </div>
 
       {/* Status Badge */}
@@ -80,6 +101,13 @@ export const VehicleDetails: React.FC<VehicleDetailsProps> = ({ vehicle, onClose
           <span className="text-gray-500">Driver</span>
           <span className="font-medium">{vehicle.driverName}</span>
         </div>
+
+        {vehicle.routeName && (
+          <div className="flex justify-between">
+            <span className="text-gray-500">Route</span>
+            <span className="font-medium text-blue-600">{vehicle.routeName}</span>
+          </div>
+        )}
 
         {vehicle.companyName && (
           <div className="flex justify-between">
@@ -118,10 +146,16 @@ export const VehicleDetails: React.FC<VehicleDetailsProps> = ({ vehicle, onClose
 
       {/* Actions */}
       <div className="mt-4 pt-4 border-t space-y-2">
-        <button className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+        <button 
+          onClick={handleViewHistory}
+          className="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition cursor-pointer"
+        >
           View History
         </button>
-        <button className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+        <button 
+          onClick={handleViewAnalytics}
+          className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition cursor-pointer"
+        >
           View Analytics
         </button>
       </div>

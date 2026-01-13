@@ -49,6 +49,12 @@ export function useSocket() {
       console.log('Socket connected:', socket.id);
       setOnlineStatus(true); // Update online status
       
+      // Sync any buffered locations when reconnecting
+      if (bufferCount > 0) {
+        console.log('🔄 Reconnected - syncing buffered locations...');
+        syncBufferedLocations();
+      }
+      
       // Join appropriate room based on user role
       if (user?.role === 'driver') {
         socket.emit('join:room', { room: 'drivers-room', userId: user.id || user._id });
