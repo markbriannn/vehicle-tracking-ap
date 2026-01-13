@@ -175,11 +175,11 @@ async function seed() {
     // Create Bato Terminal geofence
     const batoTerminal = await Geofence.create({
       name: 'Bato Terminal',
-      description: 'Bus and van terminal in Bato, Leyte - Plus Code: 8QHQ+6GQ',
+      description: 'Bus and van terminal in Bato, Leyte - Plus Code: 8QHQ+7M8',
       type: 'terminal',
       center: {
-        latitude: 10.3281,
-        longitude: 124.7920,
+        latitude: 10.3283,
+        longitude: 124.7922,
       },
       radius: 40, // 40 meters radius
       isActive: true,
@@ -232,16 +232,16 @@ async function seed() {
     });
     console.log(`Geofence created: ${inopacanTerminal.name} (${inopacanTerminal.radius}m radius)`);
 
-    // Create Hindang Public Market geofence
-    const hindangMarket = await Geofence.create({
-      name: 'Hindang Public Market',
-      description: 'Public market in Hindang, Leyte - Plus Code: CPMH+95Q, near municipal center',
-      type: 'checkpoint',
+    // Create Hindang Terminal geofence
+    const hindangTerminal = await Geofence.create({
+      name: 'Hindang Terminal',
+      description: 'Bus and van terminal in Hindang, Leyte - Plus Code: CPMH+64',
+      type: 'terminal',
       center: {
-        latitude: 10.43,
-        longitude: 124.73,
+        latitude: 10.4297,
+        longitude: 124.7297,
       },
-      radius: 35, // 35 meters radius for market
+      radius: 40, // 40 meters radius for terminal
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -250,16 +250,16 @@ async function seed() {
       color: '#EC4899', // Pink for market
       createdBy: admin._id,
     });
-    console.log(`Geofence created: ${hindangMarket.name} (${hindangMarket.radius}m radius)`);
+    console.log(`Geofence created: ${hindangTerminal.name} (${hindangTerminal.radius}m radius)`);
 
     // Create Baybay City Terminal geofence
     const baybayTerminal = await Geofence.create({
       name: 'Baybay City Terminal',
-      description: 'Bus and van terminal in Baybay City, Leyte - Plus Code: MQGX+57X, near Pan-Philippine Highway',
+      description: 'Bus and van terminal in Baybay City, Leyte - Plus Code: MQGX+57X, Pan-Philippine Highway',
       type: 'terminal',
       center: {
-        latitude: 10.72,
-        longitude: 124.75,
+        latitude: 10.6872,
+        longitude: 124.7997,
       },
       radius: 50, // 50 meters radius
       isActive: true,
