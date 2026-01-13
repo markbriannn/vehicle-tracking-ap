@@ -16,12 +16,14 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import MapView, { Marker, Circle, Polyline } from 'react-native-maps';
 import { useAuthStore } from '../store/authStore';
 import { useGeofenceStore } from '../store/geofenceStore';
+import { useRouteStore } from '../store/routeStore';
 import { useLocation } from '../hooks/useLocation';
 import { useSocket } from '../hooks/useSocket';
 import OfflineMapManager from '../components/OfflineMapManager';
+import RouteSelector from '../components/RouteSelector';
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import { driverHomeStyles as styles } from './styles/driverHomeStyles';
@@ -32,9 +34,17 @@ const { width } = Dimensions.get('window');
 export default function DriverHomeScreen({ navigation }) {
   const { user, token, logout, refreshUser } = useAuthStore();
   const { insideGeofences, recentEvents, geofences, setGeofences } = useGeofenceStore();
+  const { 
+    startTerminal, 
+    endTerminal, 
+    routeCoordinates, 
+    routeInfo,
+    clearRoute,
+  } = useRouteStore();
   const [vehicle, setVehicle] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [showRouteSelector, setShowRouteSelector] = useState(false);
   const [showAccuracyModal, setShowAccuracyModal] = useState(false);
   const [showOfflineMapManager, setShowOfflineMapManager] = useState(false);
   const [showGeofenceHistory, setShowGeofenceHistory] = useState(false);
@@ -127,6 +137,24 @@ export default function DriverHomeScreen({ navigation }) {
       Alert.alert('Error', 'Failed to update route');
     } finally {
       setIsSavingRoute(false);
+    }
+  };
+
+  // Handle route selection from RouteSelector
+  const handleRouteSelected = async (selectedRouteName, routeData) => {
+    setRouteName(selectedRouteName);
+    // Also save to backend
+    if (vehicle) {
+      try {
+        await axios.put(
+          `${API_URL}/vehicles/${vehicle._id}/route`,
+          { routeName: selectedRouteName },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setVehicle({ ...vehicle, routeName: selectedRouteName });
+      } catch (error) {
+        console.error('Failed to save route:', error);
+      }
     }
   };
 
@@ -267,6 +295,15 @@ export default function DriverHomeScreen({ navigation }) {
               showsUserLocation={false}
               showsMyLocationButton={false}
             >
+              {/* Route polyline */}
+              {routeCoordinates.length > 0 && (
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeColor="#3B82F6"
+                  strokeWidth={4}
+                  lineDashPattern={[0]}
+                />
+              )}
               {/* Geofence circles */}
               {geofences.map((geofence) => (
                 <Circle
@@ -399,10 +436,38 @@ export default function DriverHomeScreen({ navigation }) {
               <Text style={styles.routeLabel}>📍 Route:</Text>
               <Text style={styles.routeValue}>{vehicle.routeName || 'Not set'}</Text>
             </View>
-            <TouchableOpacity style={styles.editRouteButton} onPress={() => setShowRouteModal(true)}>
-              <Text style={styles.editRouteText}>✏️ Edit</Text>
+            <TouchableOpacity style={styles.editRouteButton} onPress={() => setShowRouteSelector(true)}>
+              <Text style={styles.editRouteText}>🛣️ Select</Text>
             </TouchableOpacity>
           </View>
+          
+          {/* Route Info Display */}
+          {routeCoordinates.length > 0 && routeInfo && (
+            <View style={{
+              backgroundColor: '#F0FDF4',
+              padding: 12,
+              borderRadius: 10,
+              marginTop: 10,
+            }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={{ fontSize: 12, color: '#166534' }}>Active Route</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#166534' }}>
+                    {startTerminal?.name} → {endTerminal?.name}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#166534', marginTop: 2 }}>
+                    {routeInfo.summary}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={clearRoute}
+                  style={{ padding: 8 }}
+                >
+                  <Text style={{ color: '#DC2626', fontSize: 12 }}>✕ Clear</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           <View style={styles.statusRow}>
             <View style={[styles.statusDot, { backgroundColor: getStatusColor(vehicle.verificationStatus) }]} />
             <Text style={styles.statusText}>Vehicle: {vehicle.verificationStatus?.toUpperCase()}</Text>
@@ -812,6 +877,15 @@ export default function DriverHomeScreen({ navigation }) {
             showsUserLocation={false}
             showsMyLocationButton={false}
           >
+            {/* Route polyline */}
+            {routeCoordinates.length > 0 && (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor="#3B82F6"
+                strokeWidth={5}
+                lineDashPattern={[0]}
+              />
+            )}
             {/* Geofence circles */}
             {geofences.map((geofence) => (
               <Circle
@@ -827,30 +901,34 @@ export default function DriverHomeScreen({ navigation }) {
               />
             ))}
             {/* Geofence markers with labels */}
-            {geofences.map((geofence) => (
-              <Marker
-                key={`full-marker-${geofence._id || geofence.id}`}
-                coordinate={{
-                  latitude: geofence.center.latitude,
-                  longitude: geofence.center.longitude,
-                }}
-                title={geofence.name}
-                description={`${geofence.type} • ${geofence.radius}m radius`}
-              >
-                <View style={{
-                  backgroundColor: geofence.color || '#3B82F6',
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 6,
-                  borderWidth: 2,
-                  borderColor: 'white',
-                }}>
-                  <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>
-                    {geofence.type === 'terminal' ? '🚏 ' : '📍 '}{geofence.name}
-                  </Text>
-                </View>
-              </Marker>
-            ))}
+            {geofences.map((geofence) => {
+              const isStart = startTerminal?._id === geofence._id;
+              const isEnd = endTerminal?._id === geofence._id;
+              return (
+                <Marker
+                  key={`full-marker-${geofence._id || geofence.id}`}
+                  coordinate={{
+                    latitude: geofence.center.latitude,
+                    longitude: geofence.center.longitude,
+                  }}
+                  title={geofence.name}
+                  description={`${geofence.type} • ${geofence.radius}m radius`}
+                >
+                  <View style={{
+                    backgroundColor: geofence.color || '#3B82F6',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 6,
+                    borderWidth: isStart || isEnd ? 3 : 2,
+                    borderColor: isStart ? '#22C55E' : isEnd ? '#EF4444' : 'white',
+                  }}>
+                    <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>
+                      {isStart ? '🟢 ' : isEnd ? '🔴 ' : geofence.type === 'terminal' ? '🚏 ' : '📍 '}{geofence.name}
+                    </Text>
+                  </View>
+                </Marker>
+              );
+            })}
             {/* Driver location */}
             {location && (
               <Marker
@@ -908,6 +986,26 @@ export default function DriverHomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
+          {/* Route Info Overlay */}
+          {routeCoordinates.length > 0 && routeInfo && (
+            <View style={{
+              position: 'absolute',
+              top: 110,
+              left: 16,
+              right: 16,
+              backgroundColor: '#3B82F6',
+              borderRadius: 12,
+              padding: 12,
+            }}>
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: 14 }}>
+                🛣️ {startTerminal?.name} → {endTerminal?.name}
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, marginTop: 2 }}>
+                {routeInfo.summary}
+              </Text>
+            </View>
+          )}
+
           {/* Legend */}
           <View style={{
             position: 'absolute',
@@ -920,36 +1018,60 @@ export default function DriverHomeScreen({ navigation }) {
             elevation: 4,
           }}>
             <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-              Geofence Legend:
+              {routeCoordinates.length > 0 ? 'Route Legend:' : 'Geofence Legend:'}
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {geofences.map((geofence) => (
-                <View 
-                  key={`legend-${geofence._id || geofence.id}`}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginRight: 16,
-                    backgroundColor: '#F9FAFB',
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 6,
-                  }}
-                >
-                  <View style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 6,
-                    backgroundColor: geofence.color || '#3B82F6',
-                    marginRight: 6,
-                  }} />
-                  <Text style={{ fontSize: 11, color: '#374151' }}>{geofence.name}</Text>
+            {routeCoordinates.length > 0 ? (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#22C55E', marginRight: 6 }} />
+                  <Text style={{ fontSize: 12, color: '#374151' }}>Start</Text>
                 </View>
-              ))}
-            </ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#EF4444', marginRight: 6 }} />
+                  <Text style={{ fontSize: 12, color: '#374151' }}>End</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 20, height: 4, backgroundColor: '#3B82F6', marginRight: 6, borderRadius: 2 }} />
+                  <Text style={{ fontSize: 12, color: '#374151' }}>Route</Text>
+                </View>
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {geofences.map((geofence) => (
+                  <View 
+                    key={`legend-${geofence._id || geofence.id}`}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginRight: 16,
+                      backgroundColor: '#F9FAFB',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <View style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 6,
+                      backgroundColor: geofence.color || '#3B82F6',
+                      marginRight: 6,
+                    }} />
+                    <Text style={{ fontSize: 11, color: '#374151' }}>{geofence.name}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
+
+      {/* Route Selector Modal */}
+      <RouteSelector
+        visible={showRouteSelector}
+        onClose={() => setShowRouteSelector(false)}
+        onRouteSelected={handleRouteSelected}
+      />
     </ScrollView>
   );
 }
