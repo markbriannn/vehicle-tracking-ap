@@ -161,7 +161,7 @@ async function seed() {
         latitude: 10.1319,
         longitude: 124.8348,
       },
-      radius: 150, // 150 meters radius
+      radius: 50, // 50 meters radius - typical terminal size
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -181,7 +181,7 @@ async function seed() {
         latitude: 10.3281,
         longitude: 124.7920,
       },
-      radius: 150, // 150 meters radius
+      radius: 40, // 40 meters radius
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -201,7 +201,7 @@ async function seed() {
         latitude: 10.3755,
         longitude: 124.7529,
       },
-      radius: 150, // 150 meters radius
+      radius: 40, // 40 meters radius
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -221,7 +221,7 @@ async function seed() {
         latitude: 10.5000,
         longitude: 124.7333,
       },
-      radius: 150, // 150 meters radius
+      radius: 40, // 40 meters radius
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -241,7 +241,7 @@ async function seed() {
         latitude: 10.43,
         longitude: 124.73,
       },
-      radius: 100, // 100 meters radius for market
+      radius: 35, // 35 meters radius for market
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -261,7 +261,7 @@ async function seed() {
         latitude: 10.72,
         longitude: 124.75,
       },
-      radius: 150, // 150 meters radius
+      radius: 50, // 50 meters radius
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
@@ -281,7 +281,7 @@ async function seed() {
         latitude: 11.00639,
         longitude: 124.6075,
       },
-      radius: 150, // 150 meters radius
+      radius: 50, // 50 meters radius - larger city terminal
       isActive: true,
       alertOnEntry: true,
       alertOnExit: true,
