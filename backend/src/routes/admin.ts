@@ -427,6 +427,91 @@ router.get('/analytics/vehicle/:id', async (req: Request, res: Response): Promis
 });
 
 /**
+ * GET /api/admin/history/vehicle/:id
+ * Get GPS history for route playback
+ */
+router.get('/history/vehicle/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { startDate, endDate, limit = 1000 } = req.query;
+
+    const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate as string) : new Date();
+
+    // Get vehicle info
+    const vehicle = await Vehicle.findById(req.params.id)
+      .populate('driverId', 'name')
+      .select('vehicleNumber licensePlate type routeName');
+
+    if (!vehicle) {
+      res.status(404).json({ error: 'Vehicle not found' });
+      return;
+    }
+
+    // Get GPS history points
+    const history = await GPSHistory.find({
+      vehicleId: req.params.id,
+      createdAt: { $gte: start, $lte: end },
+    })
+      .sort({ createdAt: 1 })
+      .limit(Number(limit))
+      .select('location createdAt');
+
+    // Format for map polyline
+    const points = history.map(h => ({
+      latitude: h.location.latitude,
+      longitude: h.location.longitude,
+      speed: h.location.speed,
+      heading: h.location.heading,
+      timestamp: h.createdAt,
+    }));
+
+    res.json({
+      vehicle: {
+        id: vehicle._id,
+        vehicleNumber: vehicle.vehicleNumber,
+        licensePlate: vehicle.licensePlate,
+        type: vehicle.type,
+        routeName: vehicle.routeName,
+        driverName: (vehicle.driverId as any)?.name || 'Unknown',
+      },
+      period: { start, end },
+      totalPoints: points.length,
+      points,
+    });
+  } catch (error) {
+    console.error('Get history error:', error);
+    res.status(500).json({ error: 'Failed to get history' });
+  }
+});
+
+/**
+ * GET /api/admin/vehicles/list
+ * Get simple list of all vehicles for dropdown
+ */
+router.get('/vehicles/list', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const vehicles = await Vehicle.find({ verificationStatus: 'approved' })
+      .populate('driverId', 'name')
+      .select('vehicleNumber licensePlate type routeName driverId')
+      .sort({ vehicleNumber: 1 });
+
+    res.json({
+      vehicles: vehicles.map(v => ({
+        id: v._id,
+        vehicleNumber: v.vehicleNumber,
+        licensePlate: v.licensePlate,
+        type: v.type,
+        routeName: v.routeName,
+        driverName: (v.driverId as any)?.name || 'No driver',
+      })),
+    });
+  } catch (error) {
+    console.error('Get vehicles list error:', error);
+    res.status(500).json({ error: 'Failed to get vehicles' });
+  }
+});
+
+/**
  * Haversine formula to calculate distance between two GPS points
  */
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

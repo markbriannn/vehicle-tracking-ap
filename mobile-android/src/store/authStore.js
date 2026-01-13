@@ -167,6 +167,19 @@ export const useAuthStore = create((set) => ({
       set({ user });
     } catch (error) {
       console.error('Failed to refresh user:', error);
+      // If 401 (unauthorized), token is invalid - logout
+      if (error.response?.status === 401) {
+        console.log('Token expired or invalid, logging out...');
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('user');
+        delete axios.defaults.headers.common['Authorization'];
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+          error: null,
+        });
+      }
     }
   },
 

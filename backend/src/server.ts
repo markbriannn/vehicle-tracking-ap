@@ -32,7 +32,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Import routes
-import { authRoutes, vehicleRoutes, adminRoutes, sosRoutes } from './routes';
+import { authRoutes, vehicleRoutes, adminRoutes, sosRoutes, geofenceRoutes } from './routes';
 
 // Import socket handlers and cron tasks
 import { initializeSocketHandlers } from './socket/handlers';
@@ -103,6 +103,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/sos', sosRoutes);
+app.use('/api/geofences', geofenceRoutes);
 
 // 404 handler
 app.use((req, res) => {

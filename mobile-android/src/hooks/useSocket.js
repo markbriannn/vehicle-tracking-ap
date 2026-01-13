@@ -14,22 +14,35 @@
  * - Sending/receiving events
  * - Auto-reconnection
  * - Real-time verification notifications
- * - Offline GPS buffering (stores locations when offline, syncs when back online)
+ * - Enhanced offline GPS buffering with priority sync
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Vibration } from 'react-native';
 import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../config/api';
 import { useVehicleStore } from '../store/vehicleStore';
 import { useAuthStore } from '../store/authStore';
+import { useGeofenceStore } from '../store/geofenceStore';
 import { useOfflineBuffer } from './useOfflineBuffer';
 
 export function useSocket() {
   const socketRef = useRef(null);
   const { updateVehicle, markOffline } = useVehicleStore();
   const { user, refreshUser } = useAuthStore();
-  const { isOnline, bufferCount, isSyncing, bufferLocation, syncBufferedLocations, setOnlineStatus } = useOfflineBuffer();
+  const { handleEntry, handleExit } = useGeofenceStore();
+  const { 
+    isOnline, 
+    bufferCount, 
+    isSyncing, 
+    syncProgress,
+    bufferLocation, 
+    bufferSOS,
+    syncBufferedLocations, 
+    forceSync,
+    setOnlineStatus,
+    getBufferHealth,
+  } = useOfflineBuffer();
 
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
@@ -103,6 +116,35 @@ export function useSocket() {
       }
     });
 
+    // Listen for geofence alerts (entry/exit notifications)
+    socket.on('geofence:alert', (data) => {
+      // Only show to drivers
+      if (user?.role === 'driver') {
+        const isEntry = data.eventType === 'entry';
+        const icon = isEntry ? '📍' : '🚗';
+        const action = isEntry ? 'Arrived at' : 'Left';
+        
+        // Vibrate to get attention
+        Vibration.vibrate(isEntry ? [0, 200, 100, 200] : [0, 100]);
+        
+        // Update geofence store
+        if (isEntry) {
+          handleEntry(data.geofence);
+        } else {
+          handleExit(data.geofence);
+        }
+        
+        // Show alert
+        Alert.alert(
+          `${icon} ${action} ${data.geofence?.name || 'Zone'}`,
+          `Vehicle: ${data.vehicle?.vehicleNumber}\nTime: ${new Date(data.timestamp).toLocaleTimeString()}`,
+          [{ text: 'OK' }]
+        );
+        
+        console.log(`📍 Geofence ${data.eventType}: ${data.geofence?.name}`);
+      }
+    });
+
     socket.on('error', (error) => {
       console.error('Socket error:', error);
     });
@@ -150,14 +192,10 @@ export function useSocket() {
   /**
    * MENTOR NOTE: Send SOS alert
    * Triggered when user presses the emergency button
+   * If offline, buffers the SOS for priority sync when back online
    */
   const sendSOS = useCallback((location, message, vehicleId) => {
-    if (!socketRef.current?.connected) {
-      console.warn('Socket not connected for SOS');
-      return false;
-    }
-
-    socketRef.current.emit('sos:send', {
+    const sosData = {
       senderId: user?._id,
       senderName: user?.name,
       senderRole: user?.role,
@@ -170,10 +208,18 @@ export function useSocket() {
         timestamp: new Date(),
       },
       message,
-    });
+    };
 
+    // If offline, buffer the SOS for priority sync
+    if (!socketRef.current?.connected) {
+      console.warn('Socket not connected - buffering SOS for priority sync');
+      bufferSOS(sosData);
+      return 'buffered';
+    }
+
+    socketRef.current.emit('sos:send', sosData);
     return true;
-  }, [user]);
+  }, [user, bufferSOS]);
 
   useEffect(() => {
     return () => {
@@ -186,9 +232,12 @@ export function useSocket() {
     disconnect,
     sendLocationUpdate,
     sendSOS,
+    forceSync,
+    getBufferHealth,
     isConnected: socketRef.current?.connected || false,
     isOnline,
     bufferCount,
     isSyncing,
+    syncProgress,
   };
 }

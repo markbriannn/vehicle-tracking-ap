@@ -35,6 +35,7 @@ import { getVehicleETA } from '../utils/eta';
 import { API_URL } from '../config/api';
 import { mapStyles as styles } from './styles/mapStyles';
 import { colors } from '../styles';
+import OfflineMapManager from '../components/OfflineMapManager';
 
 // Vehicle type icons and colors
 const VEHICLE_CONFIG = {
@@ -60,6 +61,7 @@ export default function MapScreen() {
   const [locationReady, setLocationReady] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showSOSModal, setShowSOSModal] = useState(false);
+  const [showOfflineMapManager, setShowOfflineMapManager] = useState(false);
   const [sosReason, setSOSReason] = useState('');
   const [isSendingSOS, setIsSendingSOS] = useState(false);
   const { token } = useAuthStore();
@@ -271,6 +273,14 @@ export default function MapScreen() {
         <Text style={styles.centerButtonText}>📍</Text>
       </TouchableOpacity>
 
+      {/* Offline Maps button */}
+      <TouchableOpacity 
+        style={[styles.centerButton, { bottom: 180 }]} 
+        onPress={() => setShowOfflineMapManager(true)}
+      >
+        <Text style={styles.centerButtonText}>📦</Text>
+      </TouchableOpacity>
+
       {/* SOS Button */}
       <TouchableOpacity style={styles.sosButton} onPress={handleSOSPress}>
         <Text style={styles.sosButtonText}>🚨 SOS</Text>
@@ -450,6 +460,13 @@ export default function MapScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Offline Map Manager */}
+      <OfflineMapManager
+        visible={showOfflineMapManager}
+        onClose={() => setShowOfflineMapManager(false)}
+        currentLocation={location}
+      />
     </View>
   );
 }

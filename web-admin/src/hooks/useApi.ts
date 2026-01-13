@@ -148,3 +148,13 @@ export function useVehicles() {
 
   return { vehicles, loading, pagination, fetchVehicles };
 }
+
+// Simple API instance hook
+export function useApi() {
+  return {
+    get: (url: string) => axios.get(`${API_URL}${url}`),
+    post: (url: string, data?: any) => axios.post(`${API_URL}${url}`, data),
+    put: (url: string, data?: any) => axios.put(`${API_URL}${url}`, data),
+    delete: (url: string) => axios.delete(`${API_URL}${url}`),
+  };
+}

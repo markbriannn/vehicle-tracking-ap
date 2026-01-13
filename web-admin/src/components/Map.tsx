@@ -28,23 +28,40 @@ const VEHICLE_COLORS: Record<string, string> = {
   motorcycle: '#DDA0DD',
 };
 
+// Geofence type
+interface Geofence {
+  _id: string;
+  name: string;
+  type: string;
+  center: { latitude: number; longitude: number };
+  radius: number;
+  color: string;
+  isActive: boolean;
+}
+
 interface MapProps {
   onVehicleSelect?: (vehicle: VehicleLocationUpdate) => void;
   selectedVehicleId?: string;
   center?: { lat: number; lng: number };
   zoom?: number;
+  geofences?: Geofence[];
+  showGeofences?: boolean;
 }
 
 export const Map: React.FC<MapProps> = ({
   onVehicleSelect,
   selectedVehicleId,
-  center = { lat: 14.5995, lng: 120.9842 },
-  zoom = 13,
+  center = { lat: 10.3, lng: 124.8 }, // Default to Leyte area
+  zoom = 10,
+  geofences = [],
+  showGeofences = true,
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const markersRef = useRef<Record<string, any>>({});
   const sosMarkersRef = useRef<Record<string, any>>({});
+  const geofenceCirclesRef = useRef<Record<string, any>>({});
+  const geofenceMarkersRef = useRef<Record<string, any>>({});
   const infoWindowRef = useRef<any>(null);
   
   const vehicles = useVehicleStore((state) => state.vehicles);
@@ -237,6 +254,115 @@ export const Map: React.FC<MapProps> = ({
       }
     });
   }, [alerts, mapLoaded, selectedAlertId]);
+
+  // Update geofence circles
+  useEffect(() => {
+    if (!googleMapRef.current || !mapLoaded) return;
+
+    const google = (window as any).google;
+    const currentGeofenceIds = new Set(geofences.map(g => g._id));
+
+    // Remove circles for deleted geofences
+    Object.keys(geofenceCirclesRef.current).forEach(geofenceId => {
+      if (!currentGeofenceIds.has(geofenceId)) {
+        geofenceCirclesRef.current[geofenceId].setMap(null);
+        delete geofenceCirclesRef.current[geofenceId];
+      }
+    });
+    Object.keys(geofenceMarkersRef.current).forEach(geofenceId => {
+      if (!currentGeofenceIds.has(geofenceId)) {
+        geofenceMarkersRef.current[geofenceId].setMap(null);
+        delete geofenceMarkersRef.current[geofenceId];
+      }
+    });
+
+    if (!showGeofences) {
+      // Hide all geofences
+      Object.values(geofenceCirclesRef.current).forEach((circle: any) => circle.setMap(null));
+      Object.values(geofenceMarkersRef.current).forEach((marker: any) => marker.setMap(null));
+      return;
+    }
+
+    // Add/update geofence circles
+    geofences.forEach((geofence) => {
+      if (!geofence.isActive) return;
+
+      const position = {
+        lat: geofence.center.latitude,
+        lng: geofence.center.longitude,
+      };
+
+      // Create or update circle
+      let circle = geofenceCirclesRef.current[geofence._id];
+      if (!circle) {
+        circle = new google.maps.Circle({
+          map: googleMapRef.current,
+          center: position,
+          radius: geofence.radius,
+          fillColor: geofence.color || '#3B82F6',
+          fillOpacity: 0.2,
+          strokeColor: geofence.color || '#3B82F6',
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+        });
+        geofenceCirclesRef.current[geofence._id] = circle;
+      } else {
+        circle.setCenter(position);
+        circle.setRadius(geofence.radius);
+        circle.setMap(googleMapRef.current);
+      }
+
+      // Create or update marker
+      let marker = geofenceMarkersRef.current[geofence._id];
+      if (!marker) {
+        marker = new google.maps.Marker({
+          position,
+          map: googleMapRef.current,
+          title: geofence.name,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: geofence.color || '#3B82F6',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+          },
+          label: {
+            text: geofence.type === 'terminal' ? '🚏' : '📍',
+            fontSize: '14px',
+          },
+        });
+
+        marker.addListener('click', () => {
+          if (infoWindowRef.current && googleMapRef.current) {
+            infoWindowRef.current.setContent(createGeofenceInfoContent(geofence));
+            infoWindowRef.current.open(googleMapRef.current, marker);
+          }
+        });
+
+        geofenceMarkersRef.current[geofence._id] = marker;
+      } else {
+        marker.setPosition(position);
+        marker.setMap(googleMapRef.current);
+      }
+    });
+  }, [geofences, mapLoaded, showGeofences]);
+
+  // Create geofence info window content
+  const createGeofenceInfoContent = (geofence: Geofence): string => {
+    return `
+      <div style="padding: 8px; min-width: 200px; border-left: 4px solid ${geofence.color || '#3B82F6'};">
+        <h3 style="margin: 0 0 8px 0; font-size: 16px;">
+          ${geofence.type === 'terminal' ? '🚏' : '📍'} ${geofence.name}
+        </h3>
+        <p style="margin: 4px 0;"><strong>Type:</strong> ${geofence.type}</p>
+        <p style="margin: 4px 0;"><strong>Radius:</strong> ${geofence.radius}m</p>
+        <p style="margin: 4px 0; font-size: 12px; color: #888;">
+          📍 ${geofence.center.latitude.toFixed(4)}, ${geofence.center.longitude.toFixed(4)}
+        </p>
+      </div>
+    `;
+  };
 
   // Create SOS info window content
   const createSOSInfoContent = (alert: any): string => {

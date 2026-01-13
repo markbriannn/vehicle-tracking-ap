@@ -11,3 +11,5 @@ export { User, IUserDocument } from './User';
 export { Vehicle, IVehicleDocument } from './Vehicle';
 export { SOSAlert, ISOSAlertDocument } from './SOSAlert';
 export { GPSHistory, IGPSHistoryDocument } from './GPSHistory';
+export { Geofence, IGeofenceDocument } from './Geofence';
+export { GeofenceEvent, IGeofenceEventDocument } from './GeofenceEvent';
